@@ -11,6 +11,8 @@ Graph topology:
   │    ↓                                   │ (rescan)         │
   │  node_critic_auditor  ──→ route ───────┘                  │
   │    ↓ (report)                                             │
+  │  node_remediation_verifier  (logic back-check)            │
+  │    ↓                                                      │
   │  node_report_generator                                    │
   │    ↓                                                      │
   │  END                                                      │
@@ -25,6 +27,7 @@ from langgraph.graph import END, StateGraph
 
 from .nodes import (
     node_critic_auditor,
+    node_remediation_verifier,
     node_report_generator,
     node_security_scanner,
     node_static_analysis,
@@ -44,6 +47,7 @@ def build_audit_graph():
     workflow.add_node("static_analysis", node_static_analysis)
     workflow.add_node("security_scanner", node_security_scanner)
     workflow.add_node("critic_auditor", node_critic_auditor)
+    workflow.add_node("remediation_verifier", node_remediation_verifier)
     workflow.add_node("report_generator", node_report_generator)
 
     # --- Edges ---
@@ -57,10 +61,11 @@ def build_audit_graph():
         route_reflection,
         {
             "rescan": "security_scanner",
-            "report": "report_generator",
+            "report": "remediation_verifier",
         },
     )
 
+    workflow.add_edge("remediation_verifier", "report_generator")
     workflow.add_edge("report_generator", END)
 
     return workflow.compile()

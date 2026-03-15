@@ -9,56 +9,46 @@
       }
     ]
   },
-  "CWE416_use_after_free.cpp": {
-    "vulnerabilities": [
-      {
-        "cwe_id": "CWE-416",
-        "line": 18,
-        "function": "process_data",
-        "description": "Pointer dereferenced after conditional free"
-      }
-    ]
-  },
-  "CWE476_null_deref.cpp": {
-    "vulnerabilities": [
-      {
-        "cwe_id": "CWE-476",
-        "line": 13,
-        "function": "read_config",
-        "description": "fopen return value not checked before use"
-      }
-    ]
-  },
-  "CWE401_memory_leak.cpp": {
-    "vulnerabilities": [
-      {
-        "cwe_id": "CWE-401",
-        "line": 19,
-        "function": "decrypt_payload",
-        "description": "Allocated buffer leaked on error return path"
-      }
-    ]
-  },
-  "CWE200_info_leak.cpp": {
-    "vulnerabilities": [
-      {
-        "cwe_id": "CWE-200",
-        "line": 19,
-        "function": "log_connection_info",
-        "description": "Session key bytes printed to stdout"
-      }
-    ]
-  },
-  "CWE415_double_free.cpp": {
-    "vulnerabilities": [
-      {
-        "cwe_id": "CWE-415",
-        "line": 22,
-        "function": "cleanup_context",
-        "description": "Context freed twice via repeated call"
-      }
-    ]
-  },
+  "CWE122_heap_overflow.cpp": [
+    {
+      "cwe_id": "CWE-122",
+      "line": 5,
+      "function": "heap_overflow",
+      "description": "Heap buffer overflow: strcpy writes 31 bytes into 16-byte heap buffer."
+    }
+  ],
+  "CWE125_oob_read.cpp": [
+    {
+      "cwe_id": "CWE-125",
+      "line": 3,
+      "function": "oob_read",
+      "description": "Out-of-bounds read: accessing arr[len] when valid range is 0..len-1."
+    }
+  ],
+  "CWE131_wrong_buf_size.cpp": [
+    {
+      "cwe_id": "CWE-131",
+      "line": 5,
+      "function": "create_records",
+      "description": "Incorrect buffer size: malloc(n) should be malloc(n * sizeof(Record))."
+    }
+  ],
+  "CWE134_format_string.cpp": [
+    {
+      "cwe_id": "CWE-134",
+      "line": 3,
+      "function": "log_message",
+      "description": "Format string vulnerability: user_input used as printf format string."
+    }
+  ],
+  "CWE170_missing_null_term.cpp": [
+    {
+      "cwe_id": "CWE-170",
+      "line": 4,
+      "function": "missing_null",
+      "description": "Improper null termination: strncpy(dst,src,32) does not null-terminate if src >= 32 chars."
+    }
+  ],
   "CWE190_integer_overflow.cpp": {
     "vulnerabilities": [
       {
@@ -69,6 +59,288 @@
       }
     ]
   },
+  "CWE191_integer_underflow.cpp": [
+    {
+      "cwe_id": "CWE-191",
+      "line": 3,
+      "function": "underflow",
+      "description": "Integer underflow: unsigned subtraction wraps when b > a."
+    }
+  ],
+  "CWE194_sign_extension.cpp": [
+    {
+      "cwe_id": "CWE-194",
+      "line": 4,
+      "function": "sign_extend_alloc",
+      "description": "Unexpected sign extension: negative char cast to size_t becomes huge value."
+    }
+  ],
+  "CWE195_signed_unsigned.cpp": [
+    {
+      "cwe_id": "CWE-195",
+      "line": 3,
+      "function": "compare_len",
+      "description": "Signed to unsigned comparison: negative user_len compares as very large unsigned."
+    }
+  ],
+  "CWE197_numeric_truncation.cpp": [
+    {
+      "cwe_id": "CWE-197",
+      "line": 3,
+      "function": "truncate_size",
+      "description": "Numeric truncation: size_t to unsigned short loses upper bits."
+    }
+  ],
+  "CWE200_info_leak.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-200",
+        "line": 19,
+        "function": "log_connection_info",
+        "description": "Session key bytes printed to stdout"
+      }
+    ]
+  },
+  "CWE242_dangerous_function.cpp": [
+    {
+      "cwe_id": "CWE-242",
+      "line": 3,
+      "function": "read_input",
+      "description": "Use of inherently dangerous function: gets() has no bounds checking."
+    }
+  ],
+  "CWE252_unchecked_return.cpp": [
+    {
+      "cwe_id": "CWE-252",
+      "line": 6,
+      "function": "unchecked",
+      "description": "Unchecked return value: fopen may return NULL, fgets on NULL is UB."
+    }
+  ],
+  "CWE256_plaintext_password.cpp": [
+    {
+      "cwe_id": "CWE-256",
+      "line": 8,
+      "function": "set_creds",
+      "description": "Plaintext storage of password: password stored without hashing."
+    }
+  ],
+  "CWE327_broken_crypto.cpp": [
+    {
+      "cwe_id": "CWE-327",
+      "line": 4,
+      "function": "weak_hash",
+      "description": "Use of broken cryptographic algorithm: trivial hash function, not suitable for security."
+    }
+  ],
+  "CWE362_race_condition.cpp": [
+    {
+      "cwe_id": "CWE-362",
+      "line": 5,
+      "function": "increment",
+      "description": "Race condition: shared_counter modified without synchronization."
+    }
+  ],
+  "CWE367_toctou.cpp": [
+    {
+      "cwe_id": "CWE-367",
+      "line": 8,
+      "function": "toctou_open",
+      "description": "TOCTOU race: file state may change between stat() check and fopen()."
+    }
+  ],
+  "CWE369_divide_by_zero.cpp": [
+    {
+      "cwe_id": "CWE-369",
+      "line": 4,
+      "function": "average",
+      "description": "Divide by zero: no check for count == 0."
+    }
+  ],
+  "CWE377_insecure_temp.cpp": [
+    {
+      "cwe_id": "CWE-377",
+      "line": 4,
+      "function": "insecure_temp",
+      "description": "Insecure temporary file: tmpnam generates predictable filename, race condition possible."
+    }
+  ],
+  "CWE400_resource_consumption.cpp": [
+    {
+      "cwe_id": "CWE-400",
+      "line": 4,
+      "function": "allocate_loop",
+      "description": "Uncontrolled resource consumption: unbounded allocation in user-controlled loop."
+    }
+  ],
+  "CWE401_memory_leak.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-401",
+        "line": 19,
+        "function": "decrypt_payload",
+        "description": "Allocated buffer leaked on error return path"
+      }
+    ]
+  },
+  "CWE404_improper_shutdown.cpp": [
+    {
+      "cwe_id": "CWE-404",
+      "line": 7,
+      "function": "process_file",
+      "description": "Improper resource shutdown: file handle f leaked when malloc fails."
+    }
+  ],
+  "CWE415_double_free.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-415",
+        "line": 22,
+        "function": "cleanup_context",
+        "description": "Context freed twice via repeated call"
+      }
+    ]
+  },
+  "CWE416_use_after_free.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-416",
+        "line": 18,
+        "function": "process_data",
+        "description": "Pointer dereferenced after conditional free"
+      }
+    ]
+  },
+  "CWE457_uninitialized_var.cpp": [
+    {
+      "cwe_id": "CWE-457",
+      "line": 5,
+      "function": "use_uninit",
+      "description": "Use of uninitialized variable: 'value' not set when flag <= 0."
+    }
+  ],
+  "CWE467_sizeof_pointer.cpp": [
+    {
+      "cwe_id": "CWE-467",
+      "line": 3,
+      "function": "sizeof_ptr",
+      "description": "Use of sizeof() on pointer type: copies 8 bytes instead of string length."
+    }
+  ],
+  "CWE468_pointer_scaling.cpp": [
+    {
+      "cwe_id": "CWE-468",
+      "line": 9,
+      "function": "bad_access",
+      "description": "Incorrect pointer scaling: misaligned access due to +1 byte offset."
+    }
+  ],
+  "CWE476_null_deref.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-476",
+        "line": 13,
+        "function": "read_config",
+        "description": "fopen return value not checked before use"
+      }
+    ]
+  },
+  "CWE478_missing_default.cpp": [
+    {
+      "cwe_id": "CWE-478",
+      "line": 3,
+      "function": "dispatch",
+      "description": "Missing default case in switch: CMD_DELETE not handled, falls through silently."
+    }
+  ],
+  "CWE480_incorrect_operator.cpp": [
+    {
+      "cwe_id": "CWE-480",
+      "line": 3,
+      "function": "check_flags",
+      "description": "Use of incorrect operator: == binds tighter than &, condition always false."
+    }
+  ],
+  "CWE562_return_stack_addr.cpp": [
+    {
+      "cwe_id": "CWE-562",
+      "line": 3,
+      "function": "return_local",
+      "description": "Return of stack variable address: &x invalid after function returns."
+    }
+  ],
+  "CWE587_fixed_address.cpp": [
+    {
+      "cwe_id": "CWE-587",
+      "line": 2,
+      "function": "write_fixed",
+      "description": "Assignment of fixed address to pointer: writing to hardcoded address 0xDEADBEEF."
+    }
+  ],
+  "CWE590_free_not_heap.cpp": [
+    {
+      "cwe_id": "CWE-590",
+      "line": 4,
+      "function": "free_stack",
+      "description": "Free of memory not on the heap: freeing address of stack variable."
+    }
+  ],
+  "CWE676_dangerous_func.cpp": [
+    {
+      "cwe_id": "CWE-676",
+      "line": 6,
+      "function": "dangerous_env",
+      "description": "Use of potentially dangerous function: sprintf without bounds checking."
+    }
+  ],
+  "CWE680_int_to_buf_overflow.cpp": [
+    {
+      "cwe_id": "CWE-680",
+      "line": 4,
+      "function": "int_to_overflow",
+      "description": "Integer overflow to buffer overflow: n*sizeof(int) may wrap, malloc allocates less than memset writes."
+    }
+  ],
+  "CWE704_incorrect_cast.cpp": [
+    {
+      "cwe_id": "CWE-704",
+      "line": 4,
+      "function": "bad_cast",
+      "description": "Incorrect type conversion: casting double* to int* violates strict aliasing."
+    }
+  ],
+  "CWE758_undefined_behavior.cpp": [
+    {
+      "cwe_id": "CWE-758",
+      "line": 3,
+      "function": "ub_shift",
+      "description": "Undefined behavior: left shift by 33 exceeds bit width of int (32)."
+    }
+  ],
+  "CWE761_free_wrong_offset.cpp": [
+    {
+      "cwe_id": "CWE-761",
+      "line": 5,
+      "function": "free_offset",
+      "description": "Free of pointer not at start of buffer: buf was advanced by 10 bytes."
+    }
+  ],
+  "CWE762_mismatched_memory.cpp": [
+    {
+      "cwe_id": "CWE-762",
+      "line": 4,
+      "function": "mismatched",
+      "description": "Mismatched memory management: new[] paired with free() instead of delete[]."
+    }
+  ],
+  "CWE773_missing_close.cpp": [
+    {
+      "cwe_id": "CWE-773",
+      "line": 3,
+      "function": "leak_fd",
+      "description": "Missing close of file descriptor: fopen without corresponding fclose."
+    }
+  ],
   "CWE787_oob_write.cpp": {
     "vulnerabilities": [
       {
@@ -79,10 +351,42 @@
       }
     ]
   },
+  "CWE805_wrong_length.cpp": [
+    {
+      "cwe_id": "CWE-805",
+      "line": 3,
+      "function": "wrong_length",
+      "description": "Buffer access with incorrect length value: memcpy uses strlen(src) without checking dst size."
+    }
+  ],
+  "CWE835_infinite_loop.cpp": [
+    {
+      "cwe_id": "CWE-835",
+      "line": 3,
+      "function": "infinite",
+      "description": "Infinite loop: unsigned int >= 0 is always true."
+    }
+  ],
+  "CWE843_type_confusion.cpp": [
+    {
+      "cwe_id": "CWE-843",
+      "line": 7,
+      "function": "process",
+      "description": "Type confusion: unsafe cast to TypeB without verifying actual type."
+    }
+  ],
+  "safe_bounds_check.cpp": {
+    "vulnerabilities": []
+  },
+  "safe_checked_cast.cpp": [],
+  "safe_container.cpp": [],
+  "safe_mutex.cpp": [],
+  "safe_nullptr_check.cpp": [],
   "safe_raii.cpp": {
     "vulnerabilities": []
   },
-  "safe_bounds_check.cpp": {
-    "vulnerabilities": []
-  }
+  "safe_raii_file.cpp": [],
+  "safe_smart_ptr.cpp": [],
+  "safe_snprintf.cpp": [],
+  "safe_string_ops.cpp": []
 }

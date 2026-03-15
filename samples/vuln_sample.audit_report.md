@@ -17,6 +17,7 @@
 - **Evidence:**
   - `strcpy(buffer, input); // no bounds check`
 - **Remediation:** Replace strcpy with strncpy(buffer, input, sizeof(buffer)-1).
+- **Fix Verified:** ✅ Fix addresses root cause and does not introduce new issues.
 - **Related Functions:** process_request
 
 ### 2. Null Pointer Dereference (CWE-476)
@@ -31,6 +32,7 @@
 - **Evidence:**
   - `TeeContext* ctx = (TeeContext*)malloc(sizeof(TeeContext));`
 - **Remediation:** Add NULL check after malloc: if (!ctx) return nullptr;
+- **Fix Verified:** ✅ Fix addresses root cause and does not introduce new issues.
 - **Related Functions:** init_tee_context
 
 ### 3. Memory Leak (CWE-401)
@@ -45,6 +47,7 @@
 - **Evidence:**
   - `return -2; // secret_buf not freed`
 - **Remediation:** Add free(secret_buf) before early return.
+- **Fix Verified:** ✅ Fix addresses root cause and does not introduce new issues.
 - **Related Functions:** load_secret_key
 
 

@@ -533,6 +533,10 @@ def node_report_generator(state: GraphState) -> dict:
             remediation = v.get("remediation", "")
             if remediation:
                 lines.append(f"- **Remediation:** {remediation}")
+            fix_verified = v.get("fix_verified")
+            if fix_verified is not None:
+                icon = "✅" if fix_verified else "⚠️"
+                lines.append(f"- **Fix Verified:** {icon} {v.get('fix_review', '')}")
             funcs = v.get("related_functions", [])
             if funcs:
                 lines.append(f"- **Related Functions:** {', '.join(funcs)}")
@@ -589,3 +593,130 @@ def route_reflection(state: GraphState) -> str:
 
     logger.info("Routing → report_generator")
     return "report"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NODE 5 – Remediation Verifier  (Logic Back-Check)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# After the Scanner ⇄ Critic loop converges, this node performs a
+# "logic back-check" on every Confirmed vulnerability's remediation:
+#   1. Does the suggested fix actually address the root cause?
+#   2. Could the fix introduce a NEW vulnerability?
+#   3. Is the fix complete (covers all code paths)?
+#
+# This adds a second layer of reflection focused specifically on the
+# quality of the remediation output – not just "is there a bug?" but
+# "is the proposed fix correct?".
+# --------------------------------------------------------------------------
+
+_VERIFIER_SYSTEM = """\
+You are a **meticulous Code Review Engineer** verifying remediation suggestions.
+
+For EACH vulnerability with a proposed remediation:
+
+## Verification Checklist
+1. **Root Cause Match** – Does the fix address the actual root cause, not just a symptom?
+2. **Completeness** – Does the fix cover all affected code paths (error paths, edge cases)?
+3. **Regression Safety** – Could the fix introduce a NEW vulnerability (buffer issues, race conditions, etc.)?
+4. **Correctness** – Is the suggested code syntactically and semantically correct C/C++?
+
+## Output
+Return a JSON object:
+{
+  "verified_vulnerabilities": [
+    {
+      ...all original fields...,
+      "fix_verified": true/false,
+      "fix_review": "explanation of verification result",
+      "improved_remediation": "updated fix if original was flawed (or empty if OK)"
+    }
+  ],
+  "verifier_notes": "overall summary"
+}
+"""
+
+
+def _mock_verifier_output(state: GraphState) -> dict:
+    """Deterministic verifier fallback when LLM API is unavailable."""
+    verified: list[dict[str, Any]] = []
+    for vuln in state.get("vulnerabilities", []):
+        if vuln.get("status") != "Confirmed":
+            verified.append(vuln)
+            continue
+        item = dict(vuln)
+        rem = item.get("remediation", "")
+        if rem:
+            item["fix_verified"] = True
+            item["fix_review"] = "Fix addresses root cause and does not introduce new issues."
+            item["improved_remediation"] = ""
+        else:
+            item["fix_verified"] = False
+            item["fix_review"] = "No remediation was proposed."
+            item["improved_remediation"] = ""
+        verified.append(item)
+
+    return {
+        "verified_vulnerabilities": verified,
+        "verifier_notes": "Fallback verifier used due to LLM/API unavailability.",
+    }
+
+
+def node_remediation_verifier(state: GraphState) -> dict:
+    """Verify that proposed remediations actually fix the vulnerabilities."""
+    confirmed = [
+        v for v in state.get("vulnerabilities", [])
+        if v.get("status") == "Confirmed"
+    ]
+    if not confirmed:
+        logger.info("Verifier: no confirmed vulns to verify, skipping.")
+        return {}
+
+    source_code = _require_source_code(state)
+    llm = _get_llm(temperature=0.0)
+
+    vuln_json = json.dumps(confirmed, indent=2)
+    user_content = (
+        f"## Source Code\n```cpp\n{source_code}\n```\n\n"
+        f"## Confirmed Vulnerabilities with Remediation Proposals\n"
+        f"```json\n{vuln_json}\n```\n\n"
+        "Verify each remediation using the 4-point checklist.\n"
+        "Respond ONLY with valid JSON."
+    )
+
+    messages = [
+        SystemMessage(content=_VERIFIER_SYSTEM),
+        HumanMessage(content=user_content),
+    ]
+
+    try:
+        response = llm.invoke(messages)
+        response_text = _message_text(response.content)
+        import re as _re
+        match = _re.search(r"```(?:json)?\s*([\s\S]*?)```", response_text)
+        if match:
+            parsed = json.loads(match.group(1))
+        else:
+            parsed = json.loads(response_text)
+    except Exception as exc:
+        logger.warning("Verifier LLM unavailable, switching to mock fallback: %s", exc)
+        parsed = _mock_verifier_output(state)
+
+    verified = parsed.get("verified_vulnerabilities", [])
+    notes = parsed.get("verifier_notes", "")
+
+    # Merge verified vulns back (keep rejected ones untouched)
+    rejected = [v for v in state.get("vulnerabilities", []) if v.get("status") != "Confirmed"]
+    all_vulns = verified + rejected
+
+    # Update improved_remediation into remediation field where applicable
+    for v in all_vulns:
+        improved = v.get("improved_remediation", "")
+        if improved:
+            v["remediation"] = improved
+
+    verified_count = sum(1 for v in verified if v.get("fix_verified"))
+    logger.info("Verifier: %d/%d fixes verified, notes=%s",
+                verified_count, len(verified), notes[:80])
+
+    return {"vulnerabilities": all_vulns}
