@@ -1,0 +1,20 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # ── LLM provider (uncomment & fill in) ──
+      # GPT5_KEY: "sk-xxx"
+      # CHATGPT_MODEL: "gpt-4o"
+      # CHATGPT_BASE_URL: "https://api.openai.com/v1/"
+      #
+      # ── LangSmith tracing (optional) ──
+      # LANGCHAIN_TRACING_V2: "true"
+      # LANGSMITH_API_KEY: "ls-xxx"
+      # LANGCHAIN_PROJECT: "RepoAudit"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      # Mount samples so you can add test files without rebuilding
+      - ./samples:/app/samples
+    restart: unless-stopped

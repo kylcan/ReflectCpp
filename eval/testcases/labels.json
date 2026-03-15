@@ -1,0 +1,88 @@
+{
+  "CWE120_buffer_overflow.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-120",
+        "line": 12,
+        "function": "format_greeting",
+        "description": "sprintf with unbounded user input into fixed-size buffer"
+      }
+    ]
+  },
+  "CWE416_use_after_free.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-416",
+        "line": 18,
+        "function": "process_data",
+        "description": "Pointer dereferenced after conditional free"
+      }
+    ]
+  },
+  "CWE476_null_deref.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-476",
+        "line": 13,
+        "function": "read_config",
+        "description": "fopen return value not checked before use"
+      }
+    ]
+  },
+  "CWE401_memory_leak.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-401",
+        "line": 19,
+        "function": "decrypt_payload",
+        "description": "Allocated buffer leaked on error return path"
+      }
+    ]
+  },
+  "CWE200_info_leak.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-200",
+        "line": 19,
+        "function": "log_connection_info",
+        "description": "Session key bytes printed to stdout"
+      }
+    ]
+  },
+  "CWE415_double_free.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-415",
+        "line": 22,
+        "function": "cleanup_context",
+        "description": "Context freed twice via repeated call"
+      }
+    ]
+  },
+  "CWE190_integer_overflow.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-190",
+        "line": 14,
+        "function": "alloc_matrix",
+        "description": "Unchecked rows*cols multiplication may wrap"
+      }
+    ]
+  },
+  "CWE787_oob_write.cpp": {
+    "vulnerabilities": [
+      {
+        "cwe_id": "CWE-787",
+        "line": 13,
+        "function": "fill_array",
+        "description": "Off-by-one loop writes past array bounds"
+      }
+    ]
+  },
+  "safe_raii.cpp": {
+    "vulnerabilities": []
+  },
+  "safe_bounds_check.cpp": {
+    "vulnerabilities": []
+  }
+}

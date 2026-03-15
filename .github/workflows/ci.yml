@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install ruff pytest
+
+      - name: Install cppcheck
+        run: sudo apt-get install -y cppcheck
+
+      - name: Lint with ruff
+        run: ruff check src/ eval/ main.py
+
+      - name: Run CLI smoke test (mock fallback)
+        run: python main.py --all-phases 2>&1 | grep -q "Confirmed"
+
+      - name: Run eval framework import check
+        run: python -c "from eval.dataset import load_dataset; from eval.metrics import score_file, aggregate; print('eval imports OK')"
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t repoaudit:ci .
+
+      - name: Smoke test container
+        run: |
+          docker run -d --name test-api -p 8000:8000 repoaudit:ci
+          sleep 3
+          curl -sf http://localhost:8000/health | grep -q '"ok"'
+          docker stop test-api
