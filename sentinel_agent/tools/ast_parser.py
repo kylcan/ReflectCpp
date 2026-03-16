@@ -8,6 +8,7 @@ but can be upgraded to tree-sitter for production use).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any
@@ -56,12 +57,14 @@ class ASTParserTool(BaseTool):
     def execute(self, **kwargs: Any) -> str:
         file_path = kwargs.get("file_path", "")
         if not file_path or not os.path.isfile(file_path):
-            return f"Error: file not found: {file_path}"
+            payload = {"tool": self.name, "functions": {}, "call_graph": [], "human": f"Error: file not found: {file_path}"}
+            return json.dumps(payload, ensure_ascii=False)
 
         try:
             source = open(file_path, encoding="utf-8", errors="replace").read()
         except Exception as exc:
-            return f"Error reading file: {exc}"
+            payload = {"tool": self.name, "functions": {}, "call_graph": [], "human": f"Error reading file: {exc}"}
+            return json.dumps(payload, ensure_ascii=False)
 
         # Extract function definitions
         functions: dict[str, dict] = {}
@@ -102,7 +105,14 @@ class ASTParserTool(BaseTool):
             }
 
         if not functions:
-            return "No function definitions found (file may not be C/C++ or uses unusual syntax)."
+            payload = {
+                "tool": self.name,
+                "file": os.path.basename(file_path),
+                "functions": {},
+                "call_graph": [],
+                "human": "No function definitions found (file may not be C/C++ or uses unusual syntax).",
+            }
+            return json.dumps(payload, ensure_ascii=False)
 
         # Build output
         lines: list[str] = [
@@ -130,4 +140,17 @@ class ASTParserTool(BaseTool):
         if complex_funcs:
             lines.append(f"\n⚠ High-complexity functions (>50 lines): {', '.join(complex_funcs)}")
 
-        return "\n".join(lines)
+        call_graph: list[dict[str, str]] = []
+        for fname, info in sorted(functions.items()):
+            if info["calls"]:
+                for callee in info["calls"]:
+                    call_graph.append({"caller": fname, "callee": callee})
+
+        payload = {
+            "tool": self.name,
+            "file": os.path.basename(file_path),
+            "functions": functions,
+            "call_graph": call_graph,
+            "human": "\n".join(lines),
+        }
+        return json.dumps(payload, ensure_ascii=False)

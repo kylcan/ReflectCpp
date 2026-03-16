@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from typing import Any
 
@@ -153,13 +154,15 @@ def node_critic(state: AgentState) -> dict:
         "Apply the 4-Step Verification Protocol. Respond ONLY with valid JSON."
     )
 
-    llm = get_llm(temperature=0.0)
     messages = [
         SystemMessage(content=_CRITIC_SYSTEM),
         HumanMessage(content=user_content),
     ]
 
     try:
+        if os.getenv("SENTINEL_OFFLINE") == "1":
+            raise RuntimeError("SENTINEL_OFFLINE enabled")
+        llm = get_llm(temperature=0.0)
         response = llm.invoke(messages)
         text = message_text(response.content)
         match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
@@ -200,10 +203,15 @@ def node_critic(state: AgentState) -> dict:
         "decision": f"{'Re-investigating' if needs_reinvestigation and iteration < max_iter else 'Proceeding to report'}.",
     }
 
+    run_metadata = dict(state.get("run_metadata", {}))
+    run_metadata["critic_confirmed_count"] = len(confirmed)
+    run_metadata["critic_rejected_count"] = len(rejected)
+
     return {
         "vulnerabilities": reviewed,
         "reflection_notes": reflection_notes,
         "current_phase": next_phase,
         "iteration_count": iteration,
+        "run_metadata": run_metadata,
         "reasoning_trace": [trace_entry],
     }

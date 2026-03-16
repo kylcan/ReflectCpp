@@ -28,13 +28,18 @@ jobs:
         run: sudo apt-get install -y cppcheck
 
       - name: Lint with ruff
-        run: ruff check src/ eval/ main.py
+        run: ruff check sentinel_agent/ sentinel_run.py tests/ eval/
 
-      - name: Run CLI smoke test (mock fallback)
-        run: python main.py --all-phases 2>&1 | grep -q "Confirmed"
+      - name: Run CLI smoke test (offline fallback)
+        run: |
+          SENTINEL_OFFLINE=1 python sentinel_run.py samples/vuln_sample.cpp --max-iter 2 --trace
+          SENTINEL_OFFLINE=1 python -c "from sentinel_agent.graph import run_agent; r=run_agent('samples/vuln_sample.cpp', max_iterations=2); assert 'final_report' in r"
 
-      - name: Run eval framework import check
-        run: python -c "from eval.dataset import load_dataset; from eval.metrics import score_file, aggregate; print('eval imports OK')"
+      - name: Run unit tests
+        run: pytest -q
+
+      - name: Run eval smoke (10 cases)
+        run: SENTINEL_OFFLINE=1 python -m eval.run_eval --regen --limit 10
 
   docker-build:
     runs-on: ubuntu-latest
@@ -43,11 +48,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t repoaudit:ci .
+        run: docker build -t sentinelagent:ci .
 
       - name: Smoke test container
         run: |
-          docker run -d --name test-api -p 8000:8000 repoaudit:ci
+          docker run -d --name test-api -p 8000:8000 sentinelagent:ci
           sleep 3
           curl -sf http://localhost:8000/health | grep -q '"ok"'
           docker stop test-api

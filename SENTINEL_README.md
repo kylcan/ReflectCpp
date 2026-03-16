@@ -117,6 +117,21 @@ curl http://localhost:8000/audit/{task_id}
 curl http://localhost:8000/tools
 ```
 
+## Evaluation (50+ dataset)
+
+This repo includes a lightweight eval harness with a deterministic synthetic dataset (60 cases).
+
+```bash
+# Force deterministic offline mode and run a quick eval
+python -m eval.run_eval --regen
+```
+
+## Safety Boundaries
+
+- **Sandbox root**: API only allows scanning paths under `SENTINEL_ALLOWED_ROOT` (default: current working directory).
+- **Offline mode**: set `SENTINEL_OFFLINE=1` to disable network LLM calls and force deterministic fallbacks.
+- **File reading limits**: `file_reader` enforces repo-root sandboxing and size/line limits.
+
 ### Docker
 
 ```bash

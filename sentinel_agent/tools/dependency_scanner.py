@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from typing import Any
 
 from .base import BaseTool
@@ -60,7 +59,8 @@ class DependencyScannerTool(BaseTool):
     def execute(self, **kwargs: Any) -> str:
         path = kwargs.get("path", "")
         if not path or not os.path.exists(path):
-            return f"Error: path not found: {path}"
+            payload = {"tool": self.name, "findings": [], "human": f"Error: path not found: {path}"}
+            return json.dumps(payload, ensure_ascii=False)
 
         # Collect dependency files
         dep_files: list[str] = []
@@ -75,9 +75,10 @@ class DependencyScannerTool(BaseTool):
                         dep_files.append(os.path.join(root, f))
 
         if not dep_files:
-            return "No dependency manifests found."
+            payload = {"tool": self.name, "findings": [], "human": "No dependency manifests found."}
+            return json.dumps(payload, ensure_ascii=False)
 
-        findings: list[str] = []
+        findings: list[dict[str, str]] = []
         total_deps_found = 0
 
         for dep_file in dep_files:
@@ -92,18 +93,31 @@ class DependencyScannerTool(BaseTool):
                 lib = advisory["library"]
                 if lib in content:
                     total_deps_found += 1
-                    findings.append(
-                        f"  ⚠ {rel_path}: {lib} (known vuln: {advisory['cve']}, "
-                        f"severity: {advisory['severity']})\n"
-                        f"    {advisory['description']}\n"
-                        f"    Fix: upgrade to >= {advisory['vulnerable_below']}"
-                    )
+                    findings.append({
+                        "file": rel_path,
+                        "library": lib,
+                        "cve": advisory["cve"],
+                        "severity": advisory["severity"],
+                        "description": advisory["description"],
+                        "fix": f"upgrade to >= {advisory['vulnerable_below']}",
+                    })
 
         lines = [f"Scanned {len(dep_files)} dependency file(s)."]
         if findings:
             lines.append(f"\nFound {len(findings)} potential dependency vulnerabilities:\n")
-            lines.extend(findings)
+            for item in findings:
+                lines.append(
+                    f"  ⚠ {item['file']}: {item['library']} (known vuln: {item['cve']}, severity: {item['severity']})\n"
+                    f"    {item['description']}\n"
+                    f"    Fix: {item['fix']}"
+                )
         else:
             lines.append("No known vulnerable dependencies detected.")
 
-        return "\n".join(lines)
+        payload = {
+            "tool": self.name,
+            "dependency_files": [os.path.relpath(p) for p in dep_files[:200]],
+            "findings": findings,
+            "human": "\n".join(lines),
+        }
+        return json.dumps(payload, ensure_ascii=False)

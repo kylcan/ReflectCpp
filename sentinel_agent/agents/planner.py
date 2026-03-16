@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -158,13 +159,15 @@ def node_planner(state: AgentState) -> dict:
 
     user_content = "\n".join(context_parts) + "\n\nProduce the audit plan."
 
-    llm = get_llm(temperature=0.2)
     messages = [
         SystemMessage(content=_PLANNER_SYSTEM),
         HumanMessage(content=user_content),
     ]
 
     try:
+        if os.getenv("SENTINEL_OFFLINE") == "1":
+            raise RuntimeError("SENTINEL_OFFLINE enabled")
+        llm = get_llm(temperature=0.2)
         response = llm.invoke(messages)
         text = message_text(response.content)
         # Try to parse JSON (handle markdown fences)

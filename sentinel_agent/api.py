@@ -11,6 +11,8 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -35,6 +37,50 @@ app = FastAPI(
 
 _tasks: dict[str, AuditResponse] = {}
 _executor = ThreadPoolExecutor(max_workers=2)
+
+
+def _allowed_root() -> Path:
+    root = os.getenv("SENTINEL_ALLOWED_ROOT")
+    base = Path(root) if root else Path.cwd()
+    return base.expanduser().resolve()
+
+
+def _validate_repo_and_targets(req: AuditRequest) -> tuple[str, list[str]]:
+    """Validate and normalize repo_path + target_files.
+
+    Security boundary:
+    - Only allow paths under SENTINEL_ALLOWED_ROOT (default: current working dir)
+    - Normalize and resolve symlinks
+    - Ensure target files (if provided) are within repo root
+    """
+    if "\x00" in req.repo_path:
+        raise HTTPException(status_code=400, detail="Invalid repo_path")
+
+    allowed = _allowed_root()
+    repo = Path(req.repo_path).expanduser().resolve()
+
+    if not repo.exists():
+        raise HTTPException(status_code=404, detail=f"repo_path not found: {repo}")
+    if not repo.is_relative_to(allowed):
+        raise HTTPException(status_code=403, detail=f"repo_path outside allowed root: {allowed}")
+
+    normalized_targets: list[str] = []
+    if req.target_files:
+        repo_root = repo if repo.is_dir() else repo.parent
+        for t in req.target_files:
+            if not t or "\x00" in t:
+                raise HTTPException(status_code=400, detail="Invalid target_files entry")
+            tp = Path(t)
+            if not tp.is_absolute():
+                tp = (repo_root / tp)
+            tp = tp.expanduser().resolve()
+            if not tp.exists() or not tp.is_file():
+                raise HTTPException(status_code=404, detail=f"target file not found: {tp}")
+            if not tp.is_relative_to(repo_root):
+                raise HTTPException(status_code=403, detail="target file outside repo root")
+            normalized_targets.append(str(tp))
+
+    return str(repo), normalized_targets
 
 
 def _run_audit_task(task_id: str, req: AuditRequest) -> None:
@@ -74,6 +120,10 @@ def _run_audit_task(task_id: str, req: AuditRequest) -> None:
 @app.post("/audit", response_model=AuditResponse, status_code=202)
 def submit_audit(req: AuditRequest) -> AuditResponse:
     """Submit a repository or file for security audit."""
+    repo_path, target_files = _validate_repo_and_targets(req)
+    req.repo_path = repo_path
+    req.target_files = target_files
+
     task_id = uuid.uuid4().hex[:12]
     _tasks[task_id] = AuditResponse(
         task_id=task_id, status=AuditStatusEnum.PENDING,

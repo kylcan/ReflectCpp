@@ -7,6 +7,7 @@ regex matching (uses Python re, not external grep).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any
@@ -49,6 +50,9 @@ class GrepScannerTool(BaseTool):
             "properties": {
                 "path": {"type": "string", "description": "File or directory to scan."},
                 "pattern": {"type": "string", "description": "Optional: custom regex pattern to search for."},
+                "max_files": {"type": "integer", "description": "Max files to scan (default 2000)."},
+                "max_matches": {"type": "integer", "description": "Stop after this many matches (default 2000)."},
+                "max_file_size_bytes": {"type": "integer", "description": "Skip files larger than this (default 524288)."},
             },
             "required": ["path"],
         }
@@ -56,6 +60,9 @@ class GrepScannerTool(BaseTool):
     def execute(self, **kwargs: Any) -> str:
         path = kwargs.get("path", "")
         custom_pattern = kwargs.get("pattern", "")
+        max_files = int(kwargs.get("max_files", 2000) or 0)
+        max_matches = int(kwargs.get("max_matches", 2000) or 0)
+        max_file_size = int(kwargs.get("max_file_size_bytes", 524288) or 0)
 
         if not path or not os.path.exists(path):
             return f"Error: path not found: {path}"
@@ -69,12 +76,22 @@ class GrepScannerTool(BaseTool):
                     if any(fn.endswith(ext) for ext in (".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx")):
                         files.append(os.path.join(root, fn))
 
+        if max_files and len(files) > max_files:
+            files = sorted(files)[:max_files]
+
         if not files:
             return "No C/C++ files found."
 
-        results: list[str] = []
+        matches: list[dict[str, Any]] = []
+        results_human: list[str] = []
 
         for fpath in sorted(files):
+            if max_file_size and os.path.isfile(fpath):
+                try:
+                    if os.path.getsize(fpath) > max_file_size:
+                        continue
+                except OSError:
+                    continue
             try:
                 content = open(fpath, encoding="utf-8", errors="replace").read()
             except Exception:
@@ -89,10 +106,41 @@ class GrepScannerTool(BaseTool):
                 for regex, func_name, cwe_note in patterns:
                     if re.search(regex, line):
                         rel_path = os.path.relpath(fpath)
-                        results.append(f"{rel_path}:{line_num}: [{func_name}] {cwe_note}")
-                        results.append(f"    {line.strip()}")
+                        cwe_id = ""
+                        m = re.search(r"CWE-\d+", cwe_note)
+                        if m:
+                            cwe_id = m.group(0)
+                        matches.append({
+                            "file": rel_path,
+                            "line": line_num,
+                            "pattern": func_name,
+                            "cwe": cwe_id,
+                            "note": cwe_note,
+                            "line_text": line.strip(),
+                        })
+                        results_human.append(f"{rel_path}:{line_num}: [{func_name}] {cwe_note}")
+                        results_human.append(f"    {line.strip()}")
 
-        if not results:
-            return "No dangerous patterns found."
+                        if max_matches and len(matches) >= max_matches:
+                            break
+                if max_matches and len(matches) >= max_matches:
+                    break
+            if max_matches and len(matches) >= max_matches:
+                break
 
-        return f"Found {len(results) // 2} matches:\n" + "\n".join(results)
+        if not matches:
+            payload = {
+                "tool": self.name,
+                "matches": [],
+                "human": "No dangerous patterns found.",
+            }
+            return json.dumps(payload, ensure_ascii=False)
+
+        human = f"Found {len(matches)} matches:\n" + "\n".join(results_human)
+        payload = {
+            "tool": self.name,
+            "matches": matches,
+            "truncated": bool(max_matches and len(matches) >= max_matches),
+            "human": human,
+        }
+        return json.dumps(payload, ensure_ascii=False)

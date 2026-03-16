@@ -8,6 +8,7 @@ appropriate tool, executes it, and records the observation.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any
@@ -38,9 +39,6 @@ def _execute_tool(tool_name: str, args: dict[str, Any]) -> tuple[str, bool]:
         return f"Error: unknown tool '{tool_name}'", False
     try:
         output = tool.execute(**args)
-        # Truncate very long outputs to keep state manageable
-        if len(output) > 8000:
-            output = output[:8000] + f"\n... (truncated, {len(output)} total chars)"
         return output, True
     except Exception as exc:
         return f"Tool execution error: {exc}", False
@@ -96,13 +94,33 @@ def node_executor(state: AgentState) -> dict:
     elif tool_name == "file_reader":
         if target_files:
             tool_args["file_path"] = _resolve_file_path(repo_path, target_files[0])
+            tool_args["repo_root"] = repo_path if os.path.isdir(repo_path) else os.path.dirname(repo_path)
     else:
         # Default: try grep_scanner on repo
         tool_name = "grep_scanner"
         tool_args["path"] = repo_path
 
     # Execute
-    output, success = _execute_tool(tool_name, tool_args)
+    raw_output, success = _execute_tool(tool_name, tool_args)
+
+    output_json: dict[str, Any] | None = None
+    output_text = raw_output
+    if success and isinstance(raw_output, str):
+        candidate = raw_output.lstrip()
+        if candidate.startswith("{") and candidate.rstrip().endswith("}"):
+            try:
+                parsed = json.loads(raw_output)
+                if isinstance(parsed, dict):
+                    output_json = parsed
+                    human = parsed.get("human")
+                    if isinstance(human, str) and human.strip():
+                        output_text = human
+            except Exception:
+                output_json = None
+
+    # Truncate only the human text shown in state
+    if isinstance(output_text, str) and len(output_text) > 8000:
+        output_text = output_text[:8000] + f"\n... (truncated, {len(output_text)} total chars)"
 
     # Mark task completed
     task["status"] = TaskStatus.COMPLETED.value
@@ -110,35 +128,31 @@ def node_executor(state: AgentState) -> dict:
     # Update repo_context if we got a repo_mapper result
     repo_context = dict(state.get("repo_context", {}))
     if tool_name == "repo_mapper" and success:
-        # Parse key info from mapper output
-        lines = output.splitlines()
-        file_tree: list[str] = []
-        capture_tree = False
-        for line in lines:
-            if "## File Tree" in line:
-                capture_tree = True
-                continue
-            if capture_tree and line.startswith("  ") and not line.startswith("  ..."):
-                file_tree.append(line.strip())
-            elif capture_tree and line.startswith("##"):
-                capture_tree = False
-
-        repo_context["file_tree"] = file_tree
-        repo_context["root_dir"] = repo_path
-        repo_context["mapper_output"] = output
+        if output_json:
+            repo_context["file_tree"] = output_json.get("file_tree", [])
+            repo_context["high_risk_files"] = output_json.get("high_risk_files", [])
+            repo_context["dependency_files"] = output_json.get("dependency_files", [])
+            repo_context["languages"] = output_json.get("languages", {})
+            repo_context["root_dir"] = repo_path
+            repo_context["mapper_output"] = output_text
+        else:
+            repo_context["root_dir"] = repo_path
+            repo_context["mapper_output"] = output_text
 
     # Cache file contents if file_reader was used
     file_cache = dict(state.get("file_contents_cache", {}))
     if tool_name == "file_reader" and success and target_files:
-        file_cache[target_files[0]] = output
+        file_cache[target_files[0]] = output_text
 
     # Build observation
     observation = {
         "tool_name": tool_name,
         "arguments": tool_args,
-        "output": output,
+        "output": output_text,
+        "output_json": output_json,
+        "raw_output": raw_output if isinstance(raw_output, str) and len(raw_output) <= 20000 else "(raw output omitted)",
         "success": success,
-        "error": "" if success else output,
+        "error": "" if success else raw_output,
     }
 
     # Build trace entry
@@ -147,7 +161,7 @@ def node_executor(state: AgentState) -> dict:
         "phase": AgentPhase.ACT.value,
         "thought": f"Executing task {task_id}: {description}",
         "action": f"Tool: {tool_name}({', '.join(f'{k}={v!r}' for k, v in tool_args.items())})",
-        "observation": output[:500] + ("..." if len(output) > 500 else ""),
+        "observation": output_text[:500] + ("..." if len(output_text) > 500 else ""),
         "decision": f"Task {task_id} {'completed' if success else 'failed'}.",
     }
 

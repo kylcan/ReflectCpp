@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from typing import Any
 
@@ -73,10 +74,16 @@ def _build_observation_summary(state: AgentState) -> str:
         success = obs.get("success", False)
         output = obs.get("output", "")
         args = obs.get("arguments", {})
+        output_json = obs.get("output_json")
 
         parts.append(f"### Observation {i}: {tool}")
         parts.append(f"Arguments: {json.dumps(args)}")
         parts.append(f"Status: {'success' if success else 'FAILED'}")
+        if output_json is not None:
+            try:
+                parts.append(f"Structured:\n{json.dumps(output_json, indent=2)[:3000]}")
+            except Exception:
+                parts.append("Structured: (unserializable)")
         parts.append(f"Output:\n{output}")
         parts.append("")
 
@@ -210,13 +217,15 @@ def node_analyzer(state: AgentState) -> dict:
         "Respond ONLY with valid JSON."
     )
 
-    llm = get_llm(temperature=0.1)
     messages = [
         SystemMessage(content=_ANALYZER_SYSTEM),
         HumanMessage(content=user_content),
     ]
 
     try:
+        if os.getenv("SENTINEL_OFFLINE") == "1":
+            raise RuntimeError("SENTINEL_OFFLINE enabled")
+        llm = get_llm(temperature=0.1)
         response = llm.invoke(messages)
         text = message_text(response.content)
         match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
@@ -239,8 +248,12 @@ def node_analyzer(state: AgentState) -> dict:
         "decision": "Proceeding to reflection phase for verification.",
     }
 
+    run_metadata = dict(state.get("run_metadata", {}))
+    run_metadata["analyzer_candidate_count"] = len(vulns)
+
     return {
         "vulnerabilities": vulns,
         "current_phase": AgentPhase.REFLECT.value,
+        "run_metadata": run_metadata,
         "reasoning_trace": [trace_entry],
     }

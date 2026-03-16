@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import logging
 import os
+import json
 from pathlib import Path
 
 from langgraph.graph import END, StateGraph
@@ -124,39 +125,60 @@ def node_repo_understanding(state: AgentState) -> dict:
     # Directory mode – map the full repo
     output = mapper.execute(directory=repo_path)
 
+    # New structured tool output: JSON with a 'human' field.
+    output_json: dict | None = None
+    output_text = output
+    if isinstance(output, str):
+        candidate = output.lstrip()
+        if candidate.startswith("{") and candidate.rstrip().endswith("}"):
+            try:
+                parsed = json.loads(output)
+                if isinstance(parsed, dict):
+                    output_json = parsed
+                    human = parsed.get("human")
+                    if isinstance(human, str) and human.strip():
+                        output_text = human
+            except Exception:
+                output_json = None
+
     # Parse output into structured context
-    file_tree: list[str] = []
-    capture_tree = False
-    for line in output.splitlines():
-        if "## File Tree" in line:
-            capture_tree = True
-            continue
-        if capture_tree and line.startswith("  ") and not line.startswith("  ..."):
-            file_tree.append(line.strip())
-        elif capture_tree and line.startswith("##"):
-            capture_tree = False
+    if output_json:
+        file_tree = list(output_json.get("file_tree", []) or [])
+        high_risk = list(output_json.get("high_risk_files", []) or [])
+        dep_files = list(output_json.get("dependency_files", []) or [])
+    else:
+        file_tree = []
+        capture_tree = False
+        for line in output_text.splitlines():
+            if "## File Tree" in line:
+                capture_tree = True
+                continue
+            if capture_tree and line.startswith("  ") and not line.startswith("  ..."):
+                file_tree.append(line.strip())
+            elif capture_tree and line.startswith("##"):
+                capture_tree = False
 
-    high_risk: list[str] = []
-    capture_risk = False
-    for line in output.splitlines():
-        if "## High-Risk" in line:
-            capture_risk = True
-            continue
-        if capture_risk and line.strip().startswith("⚠"):
-            high_risk.append(line.strip().lstrip("⚠").strip())
-        elif capture_risk and line.startswith("##"):
-            capture_risk = False
+        high_risk = []
+        capture_risk = False
+        for line in output_text.splitlines():
+            if "## High-Risk" in line:
+                capture_risk = True
+                continue
+            if capture_risk and line.strip().startswith("⚠"):
+                high_risk.append(line.strip().lstrip("⚠").strip())
+            elif capture_risk and line.startswith("##"):
+                capture_risk = False
 
-    dep_files: list[str] = []
-    capture_dep = False
-    for line in output.splitlines():
-        if "## Dependency" in line:
-            capture_dep = True
-            continue
-        if capture_dep and line.strip():
-            dep_files.append(line.strip())
-        elif capture_dep and line.startswith("##"):
-            capture_dep = False
+        dep_files = []
+        capture_dep = False
+        for line in output_text.splitlines():
+            if "## Dependency" in line:
+                capture_dep = True
+                continue
+            if capture_dep and line.strip():
+                dep_files.append(line.strip())
+            elif capture_dep and line.startswith("##"):
+                capture_dep = False
 
     repo_ctx = {
         "root_dir": repo_path,
@@ -164,7 +186,7 @@ def node_repo_understanding(state: AgentState) -> dict:
         "total_files": len(file_tree),
         "high_risk_files": high_risk,
         "dependency_files": dep_files,
-        "mapper_output": output,
+        "mapper_output": output_text,
     }
 
     logger.info("Repo mapped: %d files, %d high-risk, %d dependency manifests",
@@ -177,7 +199,7 @@ def node_repo_understanding(state: AgentState) -> dict:
             "phase": AgentPhase.PLAN.value,
             "thought": f"Mapping repository at {repo_path}.",
             "action": f"Discovered {len(file_tree)} files, {len(high_risk)} high-risk.",
-            "observation": output[:500],
+            "observation": output_text[:500],
             "decision": "Repository mapped. Ready for planning.",
         }],
     }
