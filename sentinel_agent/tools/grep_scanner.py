@@ -65,7 +65,8 @@ class GrepScannerTool(BaseTool):
         max_file_size = int(kwargs.get("max_file_size_bytes", 524288) or 0)
 
         if not path or not os.path.exists(path):
-            return f"Error: path not found: {path}"
+            payload = {"tool": self.name, "matches": [], "human": f"Error: path not found: {path}"}
+            return json.dumps(payload, ensure_ascii=False)
 
         files: list[str] = []
         if os.path.isfile(path):
@@ -80,7 +81,8 @@ class GrepScannerTool(BaseTool):
             files = sorted(files)[:max_files]
 
         if not files:
-            return "No C/C++ files found."
+            payload = {"tool": self.name, "matches": [], "human": "No C/C++ files found."}
+            return json.dumps(payload, ensure_ascii=False)
 
         matches: list[dict[str, Any]] = []
         results_human: list[str] = []

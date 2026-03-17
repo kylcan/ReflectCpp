@@ -22,21 +22,74 @@ Case: {case_id}
 """
 
 
-def _stable_id(prefix: str, content: str) -> str:
-    h = hashlib.sha256((prefix + "\n" + content).encode("utf-8")).hexdigest()[:10]
+def _stable_id(prefix: str, files: dict[str, str]) -> str:
+    """Stable case id derived from repo contents (excluding README).
+
+    We explicitly exclude README.md to avoid circular dependencies where the
+    README contains the case id.
+    """
+    material = {
+        k: files[k]
+        for k in sorted(files)
+        if k != "README.md"
+    }
+    blob = json.dumps(material, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    h = hashlib.sha256(prefix.encode("utf-8") + b"\n" + blob).hexdigest()[:10]
     return f"{prefix}-{h}"
 
 
-def _repo_files(case_id: str, util_h: str, util_c: str, main_c: str, extra_files: dict[str, str] | None = None) -> dict[str, str]:
+def _common_repo_scaffold() -> dict[str, str]:
+    """Repo-like scaffolding that should NOT introduce extra vulnerability patterns."""
+    cmake = """cmake_minimum_required(VERSION 3.10)
+project(SentinelEval C)
+
+set(CMAKE_C_STANDARD 99)
+include_directories(include)
+
+add_library(util STATIC src/util.c)
+add_executable(app src/main.c)
+target_link_libraries(app util)
+"""
+
+    makefile = """CC ?= cc
+CFLAGS ?= -O2 -Wall -Wextra -Iinclude
+
+all: app
+
+app: src/main.c src/util.c include/util.h
+	$(CC) $(CFLAGS) -o $@ src/main.c src/util.c
+
+clean:
+	rm -f app
+"""
+
+    return {
+        "CMakeLists.txt": cmake,
+        "Makefile": makefile,
+        "LICENSE": "Synthetic dataset content for evaluation only.\n",
+        "docs/SECURITY.md": "# Security\n\nThis is a synthetic project used for eval.\n",
+        "third_party/README.md": "Third-party dependencies would live here in a real repo.\n",
+        "include/config.h": "#pragma once\n#define APP_NAME \"sentinel-eval\"\n",
+        "src/version.c": "const char* app_version(void) { return \"0.1.0\"; }\n",
+    }
+
+
+def _repo_files(util_h: str, util_c: str, main_c: str, extra_files: dict[str, str] | None = None) -> dict[str, str]:
     files: dict[str, str] = {
-        "README.md": TEMPLATE_HEADER.format(case_id=case_id) + "\n\nThis is a synthetic repo-level eval case.\n",
         "include/util.h": util_h,
         "src/util.c": util_c,
         "src/main.c": main_c,
     }
+    files.update(_common_repo_scaffold())
     if extra_files:
         files.update(extra_files)
     return files
+
+
+def _with_readme(case_id: str, files: dict[str, str]) -> dict[str, str]:
+    out = dict(files)
+    out["README.md"] = TEMPLATE_HEADER.format(case_id=case_id) + "\n\nThis is a synthetic repo-level eval case.\n"
+    return out
 
 
 def _case_strcpy(i: int) -> CaseSpec:
@@ -62,9 +115,9 @@ int main(int argc, char** argv) {
     return 0;
 }
 """
-    content = util_h + util_c + main_c
-    case_id = _stable_id(f"BOF{i:02d}", content)
-    return CaseSpec(case_id, _repo_files(case_id, util_h, util_c, main_c), ["CWE-120"])
+    files = _repo_files(util_h, util_c, main_c)
+    case_id = _stable_id(f"BOF{i:02d}", files)
+    return CaseSpec(case_id, _with_readme(case_id, files), ["CWE-120"])
 
 
 def _case_system(i: int) -> CaseSpec:
@@ -86,9 +139,9 @@ int main(int argc, char** argv) {
     return 0;
 }
 """
-    content = util_h + util_c + main_c
-    case_id = _stable_id(f"CMD{i:02d}", content)
-    return CaseSpec(case_id, _repo_files(case_id, util_h, util_c, main_c), ["CWE-78"])
+    files = _repo_files(util_h, util_c, main_c)
+    case_id = _stable_id(f"CMD{i:02d}", files)
+    return CaseSpec(case_id, _with_readme(case_id, files), ["CWE-78"])
 
 
 def _case_malloc_no_check(i: int) -> CaseSpec:
@@ -114,9 +167,9 @@ int main(void) {
     return 0;
 }
 """
-    content = util_h + util_c + main_c
-    case_id = _stable_id(f"MNC{i:02d}", content)
-    return CaseSpec(case_id, _repo_files(case_id, util_h, util_c, main_c), ["CWE-476"])
+    files = _repo_files(util_h, util_c, main_c)
+    case_id = _stable_id(f"MNC{i:02d}", files)
+    return CaseSpec(case_id, _with_readme(case_id, files), ["CWE-476"])
 
 
 def _case_memcpy(i: int) -> CaseSpec:
@@ -140,9 +193,9 @@ int main(void) {
     return 0;
 }
 """
-    content = util_h + util_c + main_c
-    case_id = _stable_id(f"MCP{i:02d}", content)
-    return CaseSpec(case_id, _repo_files(case_id, util_h, util_c, main_c), ["CWE-120"])
+    files = _repo_files(util_h, util_c, main_c)
+    case_id = _stable_id(f"MCP{i:02d}", files)
+    return CaseSpec(case_id, _with_readme(case_id, files), ["CWE-120"])
 
 
 def _case_rand(i: int) -> CaseSpec:
@@ -164,9 +217,9 @@ int main(void) {
     return 0;
 }
 """
-    content = util_h + util_c + main_c
-    case_id = _stable_id(f"RNG{i:02d}", content)
-    return CaseSpec(case_id, _repo_files(case_id, util_h, util_c, main_c), ["CWE-338"])
+    files = _repo_files(util_h, util_c, main_c)
+    case_id = _stable_id(f"RNG{i:02d}", files)
+    return CaseSpec(case_id, _with_readme(case_id, files), ["CWE-338"])
 
 
 def _case_safe_control(i: int) -> CaseSpec:
@@ -192,9 +245,9 @@ int main(int argc, char** argv) {
     return 0;
 }
 """
-    content = util_h + util_c + main_c
-    case_id = _stable_id(f"SAFE{i:02d}", content)
-    return CaseSpec(case_id, _repo_files(case_id, util_h, util_c, main_c), [])
+    files = _repo_files(util_h, util_c, main_c)
+    case_id = _stable_id(f"SAFE{i:02d}", files)
+    return CaseSpec(case_id, _with_readme(case_id, files), [])
 
 
 def build_cases(n_each: int = 10) -> list[CaseSpec]:

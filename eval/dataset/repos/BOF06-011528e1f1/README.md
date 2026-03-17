@@ -1,7 +1,0 @@
-/*
-Synthetic repo-level security sample generated for SentinelAgent eval.
-Case: BOF06-011528e1f1
-*/
-
-
-This is a synthetic repo-level eval case.

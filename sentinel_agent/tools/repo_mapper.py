@@ -68,7 +68,18 @@ class RepoMapperTool(BaseTool):
         max_files = kwargs.get("max_files", 20000)
 
         if not directory or not os.path.isdir(directory):
-            return f"Error: not a directory: {directory}"
+            payload = {
+                "tool": self.name,
+                "root": directory,
+                "total_files": 0,
+                "truncated": False,
+                "languages": {},
+                "dependency_files": [],
+                "high_risk_files": [],
+                "file_tree": [],
+                "human": f"Error: not a directory: {directory}",
+            }
+            return json.dumps(payload, ensure_ascii=False)
 
         root = Path(directory).resolve()
         file_tree: list[str] = []

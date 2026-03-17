@@ -15,6 +15,9 @@ venv/
 .coverage
 htmlcov/
 
+# Generated eval outputs
+eval/results.json
+
 # Build artifacts
 build/
 dist/
