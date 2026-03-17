@@ -15,11 +15,15 @@ from typing import Any
 
 from ..state import AgentPhase, AgentState, TaskStatus
 from ..tools import TOOL_REGISTRY
+from ..tools.tool_policy import ToolSelectionPolicy, build_default_capabilities
 
 logger = logging.getLogger(__name__)
 
 # Instantiate all tools once
 _TOOLS = {name: cls() for name, cls in TOOL_REGISTRY.items()}
+
+# Policy instance (capabilities derived from tool descriptions)
+_TOOL_POLICY = ToolSelectionPolicy(tool_capabilities=build_default_capabilities(TOOL_REGISTRY))
 
 
 def _resolve_file_path(repo_path: str, target: str) -> str:
@@ -70,8 +74,34 @@ def node_executor(state: AgentState) -> dict:
     # Mark task in-progress
     task["status"] = TaskStatus.IN_PROGRESS.value
 
+    # --- Tool Selection Policy -------------------------------------------------
+    # Instead of trusting the planner's tool_hint blindly, score all tools and
+    # select top-k. Optionally, an online LLM can re-rank top-k (not enabled by
+    # default; offline mode stays deterministic).
+    top_k = int(os.getenv("SENTINEL_TOOL_TOPK", "2") or 2)
+    ranked = _TOOL_POLICY.rank_tools(task_text=description, tool_hint=tool_hint)
+    selected = ranked[0] if ranked else None
+
+    # Record scores + selection for traceability
+    selection_log = {
+        "task_id": task_id,
+        "tool_hint": tool_hint,
+        "top_k": [
+            {
+                "tool": s.tool_name,
+                "score": round(s.score, 4),
+                "semantic": round(s.semantic, 4),
+                "history": round(s.history, 4),
+                "cost": round(s.cost, 4),
+            }
+            for s in ranked[: max(top_k, 1)]
+        ],
+        "selected_tool": selected.tool_name if selected else (tool_hint or "grep_scanner"),
+        "reason": "policy(score=semantic+history-cost)",
+    }
+
     # Determine tool arguments
-    tool_name = tool_hint
+    tool_name = selection_log["selected_tool"]
     tool_args: dict[str, Any] = {}
 
     if tool_name == "repo_mapper":
@@ -153,17 +183,30 @@ def node_executor(state: AgentState) -> dict:
         "raw_output": raw_output if isinstance(raw_output, str) and len(raw_output) <= 20000 else "(raw output omitted)",
         "success": success,
         "error": "" if success else raw_output,
+        "tool_selection": selection_log,
     }
 
     # Build trace entry
+    scores_str = ", ".join(
+        f"{x.get('tool')}={x.get('score')}" for x in (selection_log.get("top_k") or [])
+    )
     trace_entry = {
         "step": len(state.get("reasoning_trace", [])) + 1,
         "phase": AgentPhase.ACT.value,
         "thought": f"Executing task {task_id}: {description}",
-        "action": f"Tool: {tool_name}({', '.join(f'{k}={v!r}' for k, v in tool_args.items())})",
+        "action": (
+            f"Selected tool via policy: {tool_name}"
+            f" | scores: {scores_str}"
+            f" | call: {tool_name}({', '.join(f'{k}={v!r}' for k, v in tool_args.items())})"
+        ),
         "observation": output_text[:500] + ("..." if len(output_text) > 500 else ""),
         "decision": f"Task {task_id} {'completed' if success else 'failed'}.",
     }
+
+    run_metadata = dict(state.get("run_metadata", {}))
+    runs = list(run_metadata.get("tool_policy_selections", []) or [])
+    runs.append(selection_log)
+    run_metadata["tool_policy_selections"] = runs
 
     # Advance to next task
     next_idx = task_idx + 1
@@ -180,5 +223,6 @@ def node_executor(state: AgentState) -> dict:
         "observations": [observation],
         "repo_context": repo_context,
         "file_contents_cache": file_cache,
+        "run_metadata": run_metadata,
         "reasoning_trace": [trace_entry],
     }

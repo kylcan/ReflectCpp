@@ -20,6 +20,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..llm import get_llm, message_text
 from ..state import AgentPhase, AgentState
+from ..tools.tool_attribution import update_history_from_run
+from ..tools.tool_policy import ToolHistory
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +208,18 @@ def node_critic(state: AgentState) -> dict:
     run_metadata = dict(state.get("run_metadata", {}))
     run_metadata["critic_confirmed_count"] = len(confirmed)
     run_metadata["critic_rejected_count"] = len(rejected)
+
+    # Update historical tool success tracking based on confirmed findings.
+    try:
+        history = ToolHistory.default()
+        update_summary = update_history_from_run(
+            observations=list(state.get("observations", []) or []),
+            reviewed_vulnerabilities=reviewed,
+            history=history,
+        )
+        run_metadata["tool_history_update"] = update_summary
+    except Exception as exc:
+        run_metadata["tool_history_update_error"] = str(exc)
 
     return {
         "vulnerabilities": reviewed,

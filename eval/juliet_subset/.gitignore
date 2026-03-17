@@ -1,0 +1,6 @@
+# Generated locally from your own Juliet checkout
+samples/
+
+# Python
+__pycache__/
+*.pyc

@@ -1,0 +1,10 @@
+{
+  "grep_scanner": {
+    "reward_sum": 7.0,
+    "count": 7
+  },
+  "file_reader": {
+    "reward_sum": 7.0,
+    "count": 7
+  }
+}

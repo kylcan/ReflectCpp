@@ -1,0 +1,50 @@
+[
+  {
+    "task": "Map the repository structure and identify high-risk files.",
+    "correct_tool": "repo_mapper"
+  },
+  {
+    "task": "Search the codebase for uses of system() and popen() that could lead to command injection.",
+    "correct_tool": "grep_scanner"
+  },
+  {
+    "task": "Run static analysis on this C/C++ project to detect buffer overflow and null pointer issues.",
+    "correct_tool": "cppcheck"
+  },
+  {
+    "task": "Parse the AST for the target C++ file to understand function boundaries and call sites.",
+    "correct_tool": "ast_parser"
+  },
+  {
+    "task": "Scan the repository for dependency manifests (requirements.txt, package.json, CMakeLists.txt).",
+    "correct_tool": "dependency_scanner"
+  },
+  {
+    "task": "Open the file and show the specific lines around the risky strcpy call.",
+    "correct_tool": "file_reader"
+  },
+  {
+    "task": "Quickly grep for strcpy/gets/memcpy patterns indicating potential buffer overflow.",
+    "correct_tool": "grep_scanner"
+  },
+  {
+    "task": "Identify use-after-free patterns and dangling pointer usage in the code.",
+    "correct_tool": "cppcheck"
+  },
+  {
+    "task": "List all files and directories to get a full inventory before deeper analysis.",
+    "correct_tool": "repo_mapper"
+  },
+  {
+    "task": "Find where dependencies are declared and summarize third-party libraries used.",
+    "correct_tool": "dependency_scanner"
+  },
+  {
+    "task": "Read the README and build instructions to understand how the project is compiled.",
+    "correct_tool": "file_reader"
+  },
+  {
+    "task": "Search for occurrences of exec(), system(), and unsafe shell calls across the repo.",
+    "correct_tool": "grep_scanner"
+  }
+]
